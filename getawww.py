@@ -1,33 +1,44 @@
+#!/usr/bin/python
+
 import subprocess
 import os
 import sys
-from HTMLParser import HTMLParser
+from bs4 import BeautifulSoup
 
-TAG = "entry unvoted"
+def _getImgurLink(titleDoc):
+    for link in titleDoc.find_all('a'):
+        return link['href']
 
-p       = subprocess.Popen(["curl", "http://www.reddit.com/r/Awww/hot?limit=10"], 
-                           stdout=subprocess.PIPE)
-out, rc = p.communicate()
-p.wait()
+# yea this is likely to break
+def _readFirstLink(rawDoc):
+    soup = BeautifulSoup(rawDoc, 'html.parser')
 
-class MyHTMLParser(HTMLParser):
-    def __init__(self):
-        self.traversingInterestingItem = False
+    for title in soup.find_all('p'):
+        titleClass = title.get('class', None)
+        if not titleClass:
+            continue
 
-    def handle_starttag(self, tag, attrs):
-        d = dict(attrs)
-        if 'class' in d and d['class'] == 'entry unvoted':
-            print self.get_starttag_text()
+        titleClass = ' '.join(titleClass)
+        if "title" != titleClass:
+            continue
 
-    def handle_endtag(self, tag):
-        pass
-            
-        # if TAG == tag:
-        #     print "Encountered an end tag :", tag
-    # def handle_data(self, data):
-    #     print "Encountered some data  :", datax
+        for domain in title.find_all('span'):
+            for link in domain.find_all('a'):
+                if "imgur" in link["href"]:
+                    return _getImgurLink(title)
 
-parser = MyHTMLParser()
-parser.feed(out)
+###################
+## PUBLIC INTERFACE
 
-#print out
+def getAwww():
+    p = subprocess.Popen(["curl", "http://www.reddit.com/r/Awww/hot?limit=10"], 
+                         stdout=subprocess.PIPE)
+    out, rc = p.communicate()
+    p.wait()    
+    return _readFirstLink(out)
+
+##############
+## TESTING
+
+if __name__ == "__main__":
+    print getAwww()
